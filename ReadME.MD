@@ -105,6 +105,16 @@ This allows you to test API endpoints directly from the browser.
 
 ---
 
+# for auth login:
+for auth login use this body as mentioned in the project document:
+{
+  "username": "admin",
+  "password": "password"
+}
+this would give the auth token set it in swagger top right corner and you can use any api .
+the timeout of token is set to 10 minutes for now can be changed in dbutils file
+
+
 #  UNIT TESTS -->
 -- to run the unit test
 use ```pytest```

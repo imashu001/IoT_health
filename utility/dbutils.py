@@ -9,10 +9,13 @@ from utility.model import IoTDataCreate, UserCreate, UserUpdate
 from utility.connectionmanage import manager
 from datetime import datetime, timedelta
 
+import os
 
-JWT_SECRET = "your_secret_key_here"  # same as your verify_jwt
-JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1  # token validity
+
+
+JWT_SECRET = os.getenv("JWT_SECRET")  # same as your verify_jwt
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = 10  # token validity
 security = HTTPBearer()  # tells FastAPI & Swagger to use a Bearer token
 async def ingest_iot_data(data: dict) -> dict:
     # Validate payload
