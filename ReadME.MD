@@ -8,8 +8,8 @@ This project sets up a lightweight API server that can receive and process data 
 
 # Status
 
-**Work in Progress**
-Core FastAPI server setup is completed. IoT data ingestion and processing will be added.
+**Completed**
+Core FastAPI server setup is completed. IoT data ingestion and processing added.
 
 ---
 
@@ -72,7 +72,10 @@ pip install -r requirements.txt
 
 ---
 
-# 🚀 Running the Server
+# ENV variable replace:
+add the connection string and the db name in the env file.
+
+# Running the Server
 
 Start the FastAPI server using:
 
@@ -96,10 +99,15 @@ FastAPI automatically generates interactive documentation.
 
 ### Swagger UI
 
-```
-http://127.0.0.1:8000/docs
-```
+```http://127.0.0.1:8000/docs```
 
 This allows you to test API endpoints directly from the browser.
 
 ---
+
+#  UNIT TESTS -->
+-- to run the unit test
+use ```pytest```
+-- to check the coverage
+use ```pytest --cov=main --cov-report=html```
+and to open the html in browser use : ```start htmlcov/index.html```
