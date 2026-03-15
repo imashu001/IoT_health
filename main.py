@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from database import db
-from utility.dbutils import add_user_to_db
 from datetime import datetime
 from utility.model import UserCreate, UserUpdate, IoTDataCreate
+from utility.connectionmanage import manager
 
 now = datetime.utcnow()
 
@@ -96,6 +96,16 @@ async def create_iot_data(data: IoTDataCreate):
 
     result = await db.iot_data.insert_one(doc)
 
+    doc["_id"] = str(result.inserted_id)
+
+    await manager.broadcast(
+        data.user_id,
+        {
+            "event": "NEW_DATA",
+            "data": doc
+        }
+    )
+
     return {
         "message": "IoT data inserted successfully",
         "id": str(result.inserted_id)
@@ -141,3 +151,65 @@ async def get_iot_history(user_id: str, limit: int = 50):
         d["_id"] = str(d["_id"])
 
     return {"data": data}
+
+
+@app.websocket("/ws/ingest")
+async def websocket_ingest(websocket: WebSocket):
+
+    await websocket.accept()
+
+    try:
+        while True:
+
+            data = await websocket.receive_json()
+
+            try:
+                iot = IoTDataCreate(**data)
+            except Exception as e:
+                await websocket.send_json({"error": str(e)})
+                continue
+
+            current_ts = int(datetime.utcnow().timestamp())
+
+            if iot.timestamp > current_ts:
+                await websocket.send_json({"error": "timestamp cannot be in the future"})
+                continue
+
+            user = await db.users.find_one({"user_id": iot.user_id})
+
+            if not user:
+                await websocket.send_json({"error": "User does not exist"})
+                continue
+
+            if user["status"] != "active":
+                await websocket.send_json({"error": "User is not active"})
+                continue
+
+            doc = iot.model_dump()
+
+            result = await db.iot_data.insert_one(doc)
+
+            doc["_id"] = str(result.inserted_id)
+
+            await manager.broadcast(
+                iot.user_id,
+                {
+                    "event": "NEW_DATA",
+                    "data": doc
+                }
+            )
+
+    except WebSocketDisconnect:
+        pass
+
+@app.websocket("/ws/subscribe")
+async def websocket_subscribe(websocket: WebSocket, user_id: str):
+
+    await manager.connect(user_id, websocket)
+
+    try:
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        manager.disconnect(user_id, websocket)
