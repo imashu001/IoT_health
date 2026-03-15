@@ -1,11 +1,19 @@
-from typing import Any
-from fastapi import HTTPException
+from typing import Any, Optional
+from fastapi import HTTPException, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, Header
+from jose import JWTError, jwt
 
 from database import db
 from utility.model import IoTDataCreate, UserCreate, UserUpdate
 from utility.connectionmanage import manager
-from datetime import datetime
+from datetime import datetime, timedelta
 
+
+JWT_SECRET = "your_secret_key_here"  # same as your verify_jwt
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 1  # token validity
+security = HTTPBearer()  # tells FastAPI & Swagger to use a Bearer token
 async def ingest_iot_data(data: dict) -> dict:
     # Validate payload
     try:
@@ -89,3 +97,43 @@ async def update_user_in_db(user_id: str, user: UserUpdate) -> dict:
         raise HTTPException(status_code=404, detail="User not found")
 
     return {"message": "User updated"}
+
+
+async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id: str = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        return user_id
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+# Simple username/password check (replace with DB in future)
+def authenticate_user(username: str, password: str) -> bool:
+    # Hardcoded for example
+    return username == "admin" and password == "password"
+
+def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None) -> str:
+    to_encode = {"sub": user_id}
+    expire = datetime.utcnow() + (expires_delta if expires_delta else timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return encoded_jwt
+
+async def decode_jwt_token(token: str) -> str:
+    """
+    Decode JWT manually (for WebSocket)
+    """
+    try:
+        # remove 'Bearer ' if present
+        if token.lower().startswith("bearer "):
+            token = token[7:]
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id: str = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        return user_id
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
